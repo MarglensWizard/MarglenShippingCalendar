@@ -678,8 +678,8 @@ Outbound (Sales),2246-MAR,135131,Foss Mfg Co LLC,15 X 3 TRI PM65001,15-MAY-26,33
       byId(id).addEventListener("input", render);
     });
 
-    byId("csvInput").value = sampleCsv;
-    rows = normalize(parseCSV(sampleCsv));
+    byId("csvInput").value = "";
+    rows = [];
     render();
   </script>
 </body>
