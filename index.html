@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shipping & Receiving Calendar</title>
+
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --ink: #172033;
+      --muted: #667085;
+      --line: #d9dee8;
+      --in: #146c43;
+      --out: #b42318;
+      --soft-in: #e7f6ed;
+      --soft-out: #ffebe9;
+      --accent: #254edb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    .wrap {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 22px;
+    }
+
+    .top {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 2px 8px rgba(16, 24, 40, 0.06);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .controls label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    input,
+    select,
+    button,
+    textarea {
+      font: inherit;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px;
+      background: #ffffff;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: var(--accent);
+      color: #ffffff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #344054;
+    }
+
+    button.light {
+      background: #eef2ff;
+      color: #243b80;
+    }
+
+    textarea {
+      min-height: 130px;
+      font-family: Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .stat b {
+      font-size: 22px;
+      display: block;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+    }
+
+    .dow {
+      font-weight: 800;
+      color: var(--muted);
+      text-align: center;
+      padding: 8px;
+    }
+
+    .day {
+      min-height: 190px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      break-inside: avoid;
+    }
+
+    .day.empty {
+      opacity: 0.35;
+    }
+
+    .dayHead {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 6px;
+    }
+
+    .dateNum {
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .totals {
+      font-size: 11px;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 7px;
+      font-size: 11px;
+      font-weight: 800;
+      margin-left: 4px;
+    }
+
+    .pill.in {
+      background: var(--soft-in);
+      color: var(--in);
+    }
+
+    .pill.out {
+      background: var(--soft-out);
+      color: var(--out);
+    }
+
+    .load {
+      border-left: 4px solid var(--line);
+      background: #fafafa;
+      border-radius: 10px;
+      padding: 7px;
+      font-size: 12px;
+    }
+
+    .load.in {
+      border-left-color: var(--in);
+      background: var(--soft-in);
+    }
+
+    .load.out {
+      border-left-color: var(--out);
+      background: var(--soft-out);
+    }
+
+    .load strong {
+      display: block;
+      font-size: 12px;
+    }
+
+    .meta {
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .qty {
+      font-weight: 800;
+      margin-top: 3px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .printHeader {
+      display: none;
+    }
+
+    .helper {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    @media (max-width: 900px) {
+      .controls {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .calendar {
+        grid-template-columns: 1fr;
+      }
+
+      .dow {
+        display: none;
+      }
+
+      .stats {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+      }
+
+      .noPrint {
+        display: none !important;
+      }
+
+      .wrap {
+        max-width: none;
+        padding: 0;
+      }
+
+      .printHeader {
+        display: block;
+        text-align: center;
+        margin-bottom: 10px;
+      }
+
+      .calendar {
+        gap: 5px;
+      }
+
+      .day {
+        min-height: 165px;
+        border-color: #000000;
+        border-radius: 0;
+        box-shadow: none;
+      }
+
+      .load {
+        font-size: 10px;
+        padding: 5px;
+        border-radius: 0;
+      }
+
+      .dayHead {
+        border-bottom-color: #000000;
+      }
+
+      .stats {
+        display: none;
+      }
+
+      @page {
+        size: landscape;
+        margin: 0.35in;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Shipping & Receiving Calendar</h1>
+        <div class="subtitle">
+          Daily inbound and outbound calendar from DelmiaWorks SQL output
+        </div>
+      </div>
+
+      <div class="noPrint">
+        <button onclick="window.print()">Print Calendar</button>
+      </div>
+    </div>
+
+    <div class="printHeader">
+      <h2>Shipping & Receiving Calendar</h2>
+      <div id="printRange"></div>
+    </div>
+
+    <div class="panel noPrint">
+      <div class="controls">
+        <div>
+          <label>Upload CSV</label>
+          <input id="fileInput" type="file" accept=".csv" />
+        </div>
+
+        <div>
+          <label>Type Filter</label>
+          <select id="typeFilter">
+            <option value="all">All</option>
+            <option>Inbound (Purchase)</option>
+            <option>Outbound (Sales)</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Partner Search</label>
+          <input id="partnerSearch" placeholder="Foss, Vendor, Customer..." />
+        </div>
+
+        <div>
+          <label>Item Search</label>
+          <input id="itemSearch" placeholder="Item #..." />
+        </div>
+
+        <div>
+          <label>&nbsp;</label>
+          <button class="secondary" id="applyBtn">Refresh</button>
+        </div>
+      </div>
+
+      <details>
+        <summary><b>Paste CSV manually</b></summary>
+        <p class="helper">
+          Paste the SQL CSV output here. Required columns: Type, Internal #,
+          External Ref (Cust PO #), Partner, Item #, Expected Date, Quantity.
+        </p>
+
+        <textarea id="csvInput"></textarea>
+        <br><br>
+        <button id="loadPasteBtn" class="light">Load Pasted CSV</button>
+      </details>
+    </div>
+
+    <div class="stats" id="stats"></div>
+    <div class="calendar" id="calendar"></div>
+  </div>
+
+  <script>
+    const sampleCsv = `Type,Internal #,External Ref (Cust PO #),Partner,Item #,Expected Date,Quantity
+Outbound (Sales),2167-MAR,135078,Foss Mfg Co LLC,15 X 3 RND 550,11-MAY-26,9800
+Outbound (Sales),2099-MAR,135002,Foss Mfg Co LLC,15 X 3 RND NCBLACK,13-MAY-26,44000
+Outbound (Sales),2167-MAR,135078,Foss Mfg Co LLC,15 X 3 TRI BR32736,11-MAY-26,27181
+Outbound (Sales),2242-MAR,135128,Foss Mfg Co LLC,15 X 3 TRI CLEAR,13-MAY-26,44000
+Outbound (Sales),2255-MAR,135148,Foss Mfg Co LLC,15 X 3 TRI CLEAR,14-MAY-26,44000
+Outbound (Sales),2253-MAR,135145,Foss Mfg Co LLC,15 X 3 TRI CLEAR,14-MAY-26,44000
+Outbound (Sales),2244-MAR,135129,Foss Mfg Co LLC,15 X 3 TRI DN64999,12-MAY-26,44000
+Outbound (Sales),2246-MAR,135131,Foss Mfg Co LLC,15 X 3 TRI DN64999,15-MAY-26,9969
+Outbound (Sales),2251-MAR,135143,Foss Mfg Co LLC,15 X 3 TRI GR35509,14-MAY-26,44000
+Outbound (Sales),2246-MAR,135131,Foss Mfg Co LLC,15 X 3 TRI PM65001,15-MAY-26,3302`;
+
+    let rows = [];
+
+    const byId = id => document.getElementById(id);
+
+    const money = n => Number(n || 0).toLocaleString();
+
+    function parseCSV(text) {
+      const lines = text.trim().split(/\r?\n/).filter(Boolean);
+      const headers = splitCSVLine(lines.shift()).map(h => h.trim());
+
+      return lines.map(line =>
+        Object.fromEntries(
+          splitCSVLine(line).map((value, index) => [headers[index], value.trim()])
+        )
+      );
+    }
+
+    function splitCSVLine(line) {
+      const output = [];
+      let current = "";
+      let quoted = false;
+
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (char === '"' && line[i + 1] === '"') {
+          current += '"';
+          i++;
+          continue;
+        }
+
+        if (char === '"') {
+          quoted = !quoted;
+          continue;
+        }
+
+        if (char === "," && !quoted) {
+          output.push(current);
+          current = "";
+          continue;
+        }
+
+        current += char;
+      }
+
+      output.push(current);
+      return output;
+    }
+
+    function parseDate(value) {
+      const match = String(value).trim().match(/^(\d{1,2})-([A-Z]{3})-(\d{2,4})$/i);
+
+      if (!match) {
+        return new Date(value);
+      }
+
+      const months = {
+        JAN: 0,
+        FEB: 1,
+        MAR: 2,
+        APR: 3,
+        MAY: 4,
+        JUN: 5,
+        JUL: 6,
+        AUG: 7,
+        SEP: 8,
+        OCT: 9,
+        NOV: 10,
+        DEC: 11
+      };
+
+      const year = Number(match[3].length === 2 ? "20" + match[3] : match[3]);
+      const month = months[match[2].toUpperCase()];
+      const day = Number(match[1]);
+
+      return new Date(year, month, day);
+    }
+
+    function dateKey(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+
+      return `${year}-${month}-${day}`;
+    }
+
+    function normalize(data) {
+      return data.map(row => ({
+        ...row,
+        date: parseDate(row["Expected Date"]),
+        qty:
+          Number(
+            String(row.Quantity || 0).replace(/[^0-9.-]/g, "")
+          ) || 0
+      }));
+    }
+
+    function filtered() {
+      const type = byId("typeFilter").value;
+      const partner = byId("partnerSearch").value.toLowerCase();
+      const item = byId("itemSearch").value.toLowerCase();
+
+      return rows.filter(row => {
+        const matchesType = type === "all" || row.Type === type;
+
+        const matchesPartner = String(row.Partner || "")
+          .toLowerCase()
+          .includes(partner);
+
+        const matchesItem = String(row["Item #"] || "")
+          .toLowerCase()
+          .includes(item);
+
+        return matchesType && matchesPartner && matchesItem;
+      });
+    }
+
+    function render() {
+      const data = filtered().sort((a, b) => {
+        return a.date - b.date || a.Type.localeCompare(b.Type);
+      });
+
+      const stats = byId("stats");
+      const calendar = byId("calendar");
+
+      stats.innerHTML = "";
+      calendar.innerHTML = "";
+
+      if (!data.length) {
+        calendar.innerHTML = '<div class="panel">No rows found.</div>';
+        return;
+      }
+
+      const inbound = data.filter(row => row.Type.includes("Inbound"));
+      const outbound = data.filter(row => row.Type.includes("Outbound"));
+
+      stats.innerHTML = `
+        <div class="stat">
+          <b>${data.length}</b>
+          <span>Total lines</span>
+        </div>
+
+        <div class="stat">
+          <b>${inbound.length}</b>
+          <span>Inbound lines</span>
+        </div>
+
+        <div class="stat">
+          <b>${outbound.length}</b>
+          <span>Outbound lines</span>
+        </div>
+
+        <div class="stat">
+          <b>${money(data.reduce((sum, row) => sum + row.qty, 0))}</b>
+          <span>Total quantity</span>
+        </div>
+      `;
+
+      const minDate = new Date(Math.min(...data.map(row => row.date)));
+      const maxDate = new Date(Math.max(...data.map(row => row.date)));
+
+      byId("printRange").textContent =
+        `${minDate.toLocaleDateString()} through ${maxDate.toLocaleDateString()}`;
+
+      const startDate = new Date(minDate);
+      startDate.setDate(startDate.getDate() - startDate.getDay());
+
+      const endDate = new Date(maxDate);
+      endDate.setDate(endDate.getDate() + (6 - endDate.getDay()));
+
+      ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach(dayName => {
+        calendar.insertAdjacentHTML("beforeend", `<div class="dow">${dayName}</div>`);
+      });
+
+      for (
+        let currentDate = new Date(startDate);
+        currentDate <= endDate;
+        currentDate.setDate(currentDate.getDate() + 1)
+      ) {
+        const dayRows = data.filter(row => dateKey(row.date) === dateKey(currentDate));
+
+        const inboundQty = dayRows
+          .filter(row => row.Type.includes("Inbound"))
+          .reduce((sum, row) => sum + row.qty, 0);
+
+        const outboundQty = dayRows
+          .filter(row => row.Type.includes("Outbound"))
+          .reduce((sum, row) => sum + row.qty, 0);
+
+        const emptyClass = dayRows.length ? "" : " empty";
+
+        const items = dayRows
+          .map(row => {
+            const isInbound = row.Type.includes("Inbound");
+            const label = isInbound ? "IN" : "OUT";
+            const cssClass = isInbound ? "in" : "out";
+
+            return `
+              <div class="load ${cssClass}">
+                <strong>${label}: ${row["Internal #"] || ""}</strong>
+                <div>${row.Partner || ""}</div>
+                <div class="meta">
+                  ${row["External Ref (Cust PO #)"] || ""} · ${row["Item #"] || ""}
+                </div>
+                <div class="qty">Qty: ${money(row.qty)}</div>
+              </div>
+            `;
+          })
+          .join("");
+
+        calendar.insertAdjacentHTML(
+          "beforeend",
+          `
+            <div class="day${emptyClass}">
+              <div class="dayHead">
+                <div>
+                  <div class="dateNum">${currentDate.getDate()}</div>
+                  <div class="meta">
+                    ${currentDate.toLocaleString(undefined, { month: "short" })}
+                  </div>
+                </div>
+
+                <div class="totals">
+                  <span class="pill in">IN ${money(inboundQty)}</span>
+                  <br>
+                  <span class="pill out">OUT ${money(outboundQty)}</span>
+                </div>
+              </div>
+
+              ${items}
+            </div>
+          `
+        );
+      }
+    }
+
+    byId("fileInput").addEventListener("change", event => {
+      const file = event.target.files[0];
+
+      if (!file) {
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onload = event => {
+        const text = event.target.result;
+
+        byId("csvInput").value = text;
+        rows = normalize(parseCSV(text));
+        render();
+      };
+
+      reader.readAsText(file);
+    });
+
+    byId("loadPasteBtn").onclick = () => {
+      rows = normalize(parseCSV(byId("csvInput").value));
+      render();
+    };
+
+    byId("applyBtn").onclick = render;
+
+    ["typeFilter", "partnerSearch", "itemSearch"].forEach(id => {
+      byId(id).addEventListener("input", render);
+    });
+
+    byId("csvInput").value = sampleCsv;
+    rows = normalize(parseCSV(sampleCsv));
+    render();
+  </script>
+</body>
+</html>
