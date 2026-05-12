@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Shipping & Receiving Calendar</title>
 
   <style>
@@ -115,7 +116,7 @@
     }
 
     textarea {
-      min-height: 130px;
+      min-height: 160px;
       font-family: Consolas, monospace;
       font-size: 12px;
     }
@@ -244,10 +245,6 @@
       margin-top: 3px;
     }
 
-    .hidden {
-      display: none !important;
-    }
-
     .printHeader {
       display: none;
     }
@@ -353,7 +350,7 @@
       <div class="controls">
         <div>
           <label>Upload CSV</label>
-          <input id="fileInput" type="file" accept=".csv" />
+          <input id="fileInput" type="file" accept=".csv,.txt" />
         </div>
 
         <div>
@@ -381,15 +378,18 @@
         </div>
       </div>
 
-      <details>
+      <details open>
         <summary><b>Paste CSV manually</b></summary>
+
         <p class="helper">
-          Paste the SQL CSV output here. Required columns: Type, Internal #,
-          External Ref (Cust PO #), Partner, Item #, Expected Date, Quantity.
+          Paste your SQL output here. This works with either no-header rows or a normal CSV header row.
+          Expected order: Type, Internal #, External Ref, Partner, Item #, Expected Date, Quantity.
         </p>
 
-        <textarea id="csvInput"></textarea>
+        <textarea id="csvInput" placeholder="Paste CSV data here..."></textarea>
+
         <br><br>
+
         <button id="loadPasteBtn" class="light">Load Pasted CSV</button>
       </details>
     </div>
@@ -399,18 +399,6 @@
   </div>
 
   <script>
-    const sampleCsv = `Type,Internal #,External Ref (Cust PO #),Partner,Item #,Expected Date,Quantity
-Outbound (Sales),2167-MAR,135078,Foss Mfg Co LLC,15 X 3 RND 550,11-MAY-26,9800
-Outbound (Sales),2099-MAR,135002,Foss Mfg Co LLC,15 X 3 RND NCBLACK,13-MAY-26,44000
-Outbound (Sales),2167-MAR,135078,Foss Mfg Co LLC,15 X 3 TRI BR32736,11-MAY-26,27181
-Outbound (Sales),2242-MAR,135128,Foss Mfg Co LLC,15 X 3 TRI CLEAR,13-MAY-26,44000
-Outbound (Sales),2255-MAR,135148,Foss Mfg Co LLC,15 X 3 TRI CLEAR,14-MAY-26,44000
-Outbound (Sales),2253-MAR,135145,Foss Mfg Co LLC,15 X 3 TRI CLEAR,14-MAY-26,44000
-Outbound (Sales),2244-MAR,135129,Foss Mfg Co LLC,15 X 3 TRI DN64999,12-MAY-26,44000
-Outbound (Sales),2246-MAR,135131,Foss Mfg Co LLC,15 X 3 TRI DN64999,15-MAY-26,9969
-Outbound (Sales),2251-MAR,135143,Foss Mfg Co LLC,15 X 3 TRI GR35509,14-MAY-26,44000
-Outbound (Sales),2246-MAR,135131,Foss Mfg Co LLC,15 X 3 TRI PM65001,15-MAY-26,3302`;
-
     let rows = [];
 
     const byId = id => document.getElementById(id);
@@ -418,14 +406,91 @@ Outbound (Sales),2246-MAR,135131,Foss Mfg Co LLC,15 X 3 TRI PM65001,15-MAY-26,33
     const money = n => Number(n || 0).toLocaleString();
 
     function parseCSV(text) {
-      const lines = text.trim().split(/\r?\n/).filter(Boolean);
-      const headers = splitCSVLine(lines.shift()).map(h => h.trim());
+      const cleanedText = text.trim();
 
-      return lines.map(line =>
-        Object.fromEntries(
-          splitCSVLine(line).map((value, index) => [headers[index], value.trim()])
-        )
+      if (!cleanedText) {
+        return [];
+      }
+
+      const lines = cleanedText
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean);
+
+      const columnNames = [
+        "Type",
+        "Internal #",
+        "External Ref (Cust PO #)",
+        "Partner",
+        "Item #",
+        "Expected Date",
+        "Quantity"
+      ];
+
+      const firstLineValues = splitCSVLine(lines[0]).map(value => value.trim());
+
+      const hasHeaders = firstLineValues.some(value =>
+        columnNames.includes(value)
       );
+
+      if (hasHeaders) {
+        lines.shift();
+      }
+
+      return lines.map(line => {
+        const values = splitCSVLine(line).map(value => String(value || "").trim());
+
+        /*
+          Normal expected layout:
+          0 Type
+          1 Internal #
+          2 External Ref
+          3 Partner
+          4 Item #
+          5 Expected Date
+          6 Quantity
+
+          If Partner has an unquoted comma, like "PolyQuest, Inc.",
+          the row may have more than 7 fields.
+
+          This repair keeps:
+          - first 3 fields as Type, Internal #, External Ref
+          - last 3 fields as Item #, Expected Date, Quantity
+          - everything in the middle becomes Partner
+        */
+
+        if (values.length > 7) {
+          const type = values[0];
+          const internalNumber = values[1];
+          const externalRef = values[2];
+
+          const quantity = values[values.length - 1];
+          const expectedDate = values[values.length - 2];
+          const itemNumber = values[values.length - 3];
+
+          const partner = values.slice(3, values.length - 3).join(", ");
+
+          return {
+            "Type": type,
+            "Internal #": internalNumber,
+            "External Ref (Cust PO #)": externalRef,
+            "Partner": partner,
+            "Item #": itemNumber,
+            "Expected Date": expectedDate,
+            "Quantity": quantity
+          };
+        }
+
+        return {
+          "Type": values[0] || "",
+          "Internal #": values[1] || "",
+          "External Ref (Cust PO #)": values[2] || "",
+          "Partner": values[3] || "",
+          "Item #": values[4] || "",
+          "Expected Date": values[5] || "",
+          "Quantity": values[6] || ""
+        };
+      });
     }
 
     function splitCSVLine(line) {
@@ -461,32 +526,47 @@ Outbound (Sales),2246-MAR,135131,Foss Mfg Co LLC,15 X 3 TRI PM65001,15-MAY-26,33
     }
 
     function parseDate(value) {
-      const match = String(value).trim().match(/^(\d{1,2})-([A-Z]{3})-(\d{2,4})$/i);
+      const cleaned = String(value).trim();
 
-      if (!match) {
-        return new Date(value);
+      const slashMatch = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+      if (slashMatch) {
+        const month = Number(slashMatch[1]) - 1;
+        const day = Number(slashMatch[2]);
+        const year = Number(slashMatch[3]);
+
+        return new Date(year, month, day);
       }
 
-      const months = {
-        JAN: 0,
-        FEB: 1,
-        MAR: 2,
-        APR: 3,
-        MAY: 4,
-        JUN: 5,
-        JUL: 6,
-        AUG: 7,
-        SEP: 8,
-        OCT: 9,
-        NOV: 10,
-        DEC: 11
-      };
+      const dashMatch = cleaned.match(/^(\d{1,2})-([A-Z]{3})-(\d{2,4})$/i);
 
-      const year = Number(match[3].length === 2 ? "20" + match[3] : match[3]);
-      const month = months[match[2].toUpperCase()];
-      const day = Number(match[1]);
+      if (dashMatch) {
+        const months = {
+          JAN: 0,
+          FEB: 1,
+          MAR: 2,
+          APR: 3,
+          MAY: 4,
+          JUN: 5,
+          JUL: 6,
+          AUG: 7,
+          SEP: 8,
+          OCT: 9,
+          NOV: 10,
+          DEC: 11
+        };
 
-      return new Date(year, month, day);
+        const year = Number(
+          dashMatch[3].length === 2 ? "20" + dashMatch[3] : dashMatch[3]
+        );
+
+        const month = months[dashMatch[2].toUpperCase()];
+        const day = Number(dashMatch[1]);
+
+        return new Date(year, month, day);
+      }
+
+      return new Date(cleaned);
     }
 
     function dateKey(date) {
@@ -498,14 +578,22 @@ Outbound (Sales),2246-MAR,135131,Foss Mfg Co LLC,15 X 3 TRI PM65001,15-MAY-26,33
     }
 
     function normalize(data) {
-      return data.map(row => ({
-        ...row,
-        date: parseDate(row["Expected Date"]),
-        qty:
-          Number(
-            String(row.Quantity || 0).replace(/[^0-9.-]/g, "")
-          ) || 0
-      }));
+      return data
+        .map(row => ({
+          ...row,
+          Type: String(row["Type"] || "").trim(),
+          "Internal #": String(row["Internal #"] || "").trim(),
+          "External Ref (Cust PO #)": String(row["External Ref (Cust PO #)"] || "").trim(),
+          Partner: String(row["Partner"] || "").trim(),
+          "Item #": String(row["Item #"] || "").trim(),
+          "Expected Date": String(row["Expected Date"] || "").trim(),
+          date: parseDate(row["Expected Date"]),
+          qty:
+            Number(
+              String(row.Quantity || 0).replace(/[^0-9.-]/g, "")
+            ) || 0
+        }))
+        .filter(row => row.date instanceof Date && !isNaN(row.date));
     }
 
     function filtered() {
@@ -530,7 +618,7 @@ Outbound (Sales),2246-MAR,135131,Foss Mfg Co LLC,15 X 3 TRI PM65001,15-MAY-26,33
 
     function render() {
       const data = filtered().sort((a, b) => {
-        return a.date - b.date || a.Type.localeCompare(b.Type);
+        return a.date - b.date || String(a.Type).localeCompare(String(b.Type));
       });
 
       const stats = byId("stats");
@@ -539,13 +627,21 @@ Outbound (Sales),2246-MAR,135131,Foss Mfg Co LLC,15 X 3 TRI PM65001,15-MAY-26,33
       stats.innerHTML = "";
       calendar.innerHTML = "";
 
-      if (!data.length) {
-        calendar.innerHTML = '<div class="panel">No rows found.</div>';
+      if (!rows.length) {
+        calendar.innerHTML =
+          '<div class="panel">Upload or paste a CSV to build the calendar.</div>';
+        byId("printRange").textContent = "";
         return;
       }
 
-      const inbound = data.filter(row => row.Type.includes("Inbound"));
-      const outbound = data.filter(row => row.Type.includes("Outbound"));
+      if (!data.length) {
+        calendar.innerHTML =
+          '<div class="panel">No rows match the current filters.</div>';
+        return;
+      }
+
+      const inbound = data.filter(row => String(row.Type).includes("Inbound"));
+      const outbound = data.filter(row => String(row.Type).includes("Outbound"));
 
       stats.innerHTML = `
         <div class="stat">
@@ -582,7 +678,10 @@ Outbound (Sales),2246-MAR,135131,Foss Mfg Co LLC,15 X 3 TRI PM65001,15-MAY-26,33
       endDate.setDate(endDate.getDate() + (6 - endDate.getDay()));
 
       ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach(dayName => {
-        calendar.insertAdjacentHTML("beforeend", `<div class="dow">${dayName}</div>`);
+        calendar.insertAdjacentHTML(
+          "beforeend",
+          `<div class="dow">${dayName}</div>`
+        );
       });
 
       for (
@@ -590,21 +689,22 @@ Outbound (Sales),2246-MAR,135131,Foss Mfg Co LLC,15 X 3 TRI PM65001,15-MAY-26,33
         currentDate <= endDate;
         currentDate.setDate(currentDate.getDate() + 1)
       ) {
-        const dayRows = data.filter(row => dateKey(row.date) === dateKey(currentDate));
+        const currentKey = dateKey(currentDate);
+        const dayRows = data.filter(row => dateKey(row.date) === currentKey);
 
         const inboundQty = dayRows
-          .filter(row => row.Type.includes("Inbound"))
+          .filter(row => String(row.Type).includes("Inbound"))
           .reduce((sum, row) => sum + row.qty, 0);
 
         const outboundQty = dayRows
-          .filter(row => row.Type.includes("Outbound"))
+          .filter(row => String(row.Type).includes("Outbound"))
           .reduce((sum, row) => sum + row.qty, 0);
 
         const emptyClass = dayRows.length ? "" : " empty";
 
         const items = dayRows
           .map(row => {
-            const isInbound = row.Type.includes("Inbound");
+            const isInbound = String(row.Type).includes("Inbound");
             const label = isInbound ? "IN" : "OUT";
             const cssClass = isInbound ? "in" : "out";
 
@@ -678,8 +778,6 @@ Outbound (Sales),2246-MAR,135131,Foss Mfg Co LLC,15 X 3 TRI PM65001,15-MAY-26,33
       byId(id).addEventListener("input", render);
     });
 
-    byId("csvInput").value = "";
-    rows = [];
     render();
   </script>
 </body>
